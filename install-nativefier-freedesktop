@@ -8,6 +8,13 @@ if [[ $1 != *"-g"* && $1 != *"--global"* && -d "$HOME/bin"  && $PATH == *"$HOME/
     useSudo=""
 fi
 
+# install ssft for portable dialogs
+if ! command -v ssft.sh >/dev/null 2>&1 ; then
+    wget https://raw.githubusercontent.com/sto/ssft/v0.9.14/src/ssft.sh;
+    eval $useSudo rm -rf "$installTo"/ssft.sh;
+    eval $useSudo mv -f ssft.sh "$installTo"/ssft.sh && echo 'ssft.sh moved';
+fi
+
 command -v npm >/dev/null 2>&1 || { echo >&2 "I require npm but it's not installed.  Aborting."; exit 1; }
 
 command -v nativefier >/dev/null 2>&1 || sudo npm install nativefier -g && echo 'Nativefier installed';
