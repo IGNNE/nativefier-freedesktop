@@ -1,9 +1,14 @@
 #!/bin/bash
 
+# portable dialogs
+source ssft.sh
+[ -n "$SSFT_FRONTEND" ] || SSFT_FRONTEND="$( ssft_choose_frontend )"
+
 if [[ $# -eq 0 ]] ; then
-    webapp=`kdialog --getopenfilename ~ .webapp`;
+    `ssft_file_selection "Choose a webapp file..."`
     if [ $? -eq 0 ]; then
-    echo "$webapp selected"
+        webapp=$SSFT_RESULT
+        echo "$webapp selected";
     else
         exit 0;
     fi
@@ -52,19 +57,22 @@ else
     # if not, ask to the user to insert it
     # (useful for self-hosted apps with custom domain)
     # as convention use reverse URL, i.e. org.kde.webapp:
-    name=`kdialog --inputbox "Name, i.e. org.kde.webapp:" | tr ' ' '_'`
+    `ssft_read_string "" "Name, i.e. org.kde.webapp:"`
+    name=$(echo $SSFT_RESULT |  tr ' ' '_')
     if [ -z $name ]; then
-		echo "File name is empty"
-		rm -rf .nf_temp;
-		exit 0;
-	fi
+        echo "File name is empty"
+	rm -rf .nf_temp;
+	exit 0;
+    fi
 fi
 
 # read launcher name:
-lname=`kreadconfig  --group 'Desktop Entry' --key Name --file $PWD/$name.desktop`
+#lname=`kreadconfig  --group 'Desktop Entry' --key Name --file $PWD/$name.desktop`
+# ugly, TODO?
+lname=`sed -n '1,//s/Name=//p' < "$PWD/$name.desktop"`
 
 # confirm installation:
-kdialog --title "Install Web App" --yesno "Do you want to install $lname?" || exit 0;
+ssft_yesno "Install Web App" "Do you want to install $lname?" || exit 0;
 
 # check if "url" file exists:
 if [ -f url ]; then
@@ -73,13 +81,14 @@ if [ -f url ]; then
 else
     # if not, ask to the user to insert it
     # (useful for self-hosted apps with custom domain):
-    url=`kdialog --inputbox URL:`
+    `ssft_read_string "" "URL:"`
+    url=$SSFT_RESULT
 fi
 
 
 # support flash?:
 flash=1;
-kdialog --title "Install Web App" --yesno "Does $lname need flash support?" || flash=0;
+ssft_yesno "Install Web App" "Does $lname need flash support?" || flash=0;
 if [ "$flash" -eq 1 ]; then
 	fp=`locate -e -L -l 1 -b '\libpepflashplayer.so'`;
 	case "$?" in
@@ -138,7 +147,8 @@ if [ "$cssn" -gt "1" ]; then
 
     rm -rf .tempfile
 
-    style=`kdialog --radiolist "Select a theme:" $kd_arg 0 None off`
+    `ssft_select_single "" "Select a theme:" $kd_arg 0 None off`
+    style=$SSFT_RESULT
 
     if [ "$style" -eq 0 ]; then
     touch nostyle.css
@@ -178,7 +188,8 @@ else
             declare script_$k=`echo "${i%.*}" | tr ' ' '_'`;
             ((k++));
         done;
-        script=`kdialog --combobox 'Choose a script:' $script_0 $script_1 $script_2 $script_3 $script_4 $script_5 $script_6 $script_7 $script_8 $script_9`.css;
+        `ssft_select_multiple "" "Choose a script:" $script_0 $script_1 $script_2 $script_3 $script_4 $script_5 $script_6 $script_7 $script_8 $script_9`;
+        script=${SSFT_RESULT}.css
     else
         script=`ls | grep .js`
     fi
@@ -190,7 +201,7 @@ if [ "$jsn" -eq 0 ]; then
 fi
 
 # inform the installation is starting:
-kdialog --msgbox "The installation has begun and may take a few minutes.\nYou will be notified upon completion.";
+ssft_display_message "" "The installation has begun and may take a few minutes.\nYou will be notified upon completion.";
 
 # check if the PNG icon file exists:
 if [ -f "$name".png ]; then
@@ -230,7 +241,11 @@ mv -f ~/.webapps/"$name"-linux-x64 ~/.webapps/"$name";
 if [ $? -eq 0 ]; then
     echo 'binaries correclty built with Nativefier'
     else
-        kdialog --title "Error" --yesno "An error occurred during installation of $lname. For a more detailed report, do you want to try again from the command line?" && konsole -e nativefier-freedesktop "$webapp"
+        command -v xterm >/dev/null 2>&1 && terminal="xterm -e"
+        command -v konsole >/dev/null 2>&1 && terminal="konsole -e"
+        command -v gnome-terminal >/dev/null 2>&1 && terminal="gnome-terminal --"
+        # not perfect, looks like "info" instead of "error"
+        ssft_yesno "Error" "An error occurred during installation of $lname. For a more detailed report, do you want to try again from the command line?" && eval $terminal nativefier-freedesktop "$webapp"
     fi
 
 # move to installation folder:
@@ -247,5 +262,5 @@ ln -s -T ../lib/libffmpeg.so libffmpeg.so;
 ln -s -T ../lib/libnode.so libnode.so;
 
 # show notification:
-kdialog --title "Installation completed" --yesno "$lname is ready.
+ssft_yesno "Installation completed" "$lname is ready.
 \n Do you want launch it?" && ~/.webapps/"$name"/"$name";
